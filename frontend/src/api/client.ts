@@ -1,6 +1,6 @@
 import type { Exercise, CreateWorkoutRequest, Workout, LogSetRequest, Set, CreateTemplateRequest, WorkoutTemplate, AddTemplateExerciseRequest, TemplateExercise, TemplateWithExercises, PhysicalStats, UpdateStatsRequest, WeightHistoryEntry, NutritionLog, LogNutritionRequest, FinishWorkoutResponse, LogSetResponse, UserBadge } from "./types";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "/api";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 export async function fetchExercises(): Promise<Exercise[]> {
     const res = await fetch(`${API_BASE}/exercises`);
