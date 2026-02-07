@@ -7,11 +7,16 @@ import { Awards } from "./pages/Awards";
 import { Splits } from "./pages/Splits";
 import { Profile } from "./pages/Profile";
 import { Leaderboard } from "./pages/Leaderboard";
+import { Onboarding } from "./pages/Onboarding";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Onboarding - outside main layout */}
+        <Route path="/onboarding" element={<Onboarding />} />
+
+        {/* Main app layout */}
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />
           <Route path="train" element={<Train />} />
@@ -27,3 +32,4 @@ function App() {
 }
 
 export default App;
+
