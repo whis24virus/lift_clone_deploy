@@ -46,14 +46,28 @@ pub async fn get_profile(
     State(state): State<AppState>,
     Path(user_id): Path<Uuid>,
 ) -> Json<UserProfile> {
-    let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
+    // Fetch user - return defaults if not found
+    let user = match sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
         .bind(user_id)
-        .fetch_one(&state.db)
+        .fetch_optional(&state.db)
         .await
-        .unwrap();
+    {
+        Ok(Some(u)) => u,
+        _ => {
+            return Json(UserProfile {
+                username: "Titan".to_string(),
+                total_workouts: 0,
+                total_volume_kg: 0.0,
+                join_date: Utc::now(),
+                activity_log: vec![],
+                current_streak: 0,
+                max_streak: 0,
+            });
+        }
+    };
 
     // Fetch basic stats (cast to FLOAT8 for f64)
-    let stats = sqlx::query(
+    let stats = match sqlx::query(
         r#"SELECT
             COUNT(DISTINCT w.id) as workout_count,
             COALESCE(SUM(s.weight_kg * s.reps), 0)::FLOAT8 as total_volume
@@ -64,7 +78,20 @@ pub async fn get_profile(
     .bind(user_id)
     .fetch_one(&state.db)
     .await
-    .unwrap();
+    {
+        Ok(s) => s,
+        Err(_) => {
+            return Json(UserProfile {
+                username: user.username,
+                total_workouts: 0,
+                total_volume_kg: 0.0,
+                join_date: user.created_at,
+                activity_log: vec![],
+                current_streak: 0,
+                max_streak: 0,
+            });
+        }
+    };
 
     let workout_count: i64 = stats.get("workout_count");
     let total_volume: f64 = stats.try_get::<Option<f64>, _>("total_volume").unwrap_or(None).unwrap_or(0.0);

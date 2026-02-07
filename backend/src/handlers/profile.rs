@@ -74,11 +74,25 @@ pub async fn get_physical_stats(
     State(state): State<AppState>,
     Path(user_id): Path<Uuid>,
 ) -> Json<PhysicalStatsResponse> {
-    let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
+    // Fetch user - return defaults if not found
+    let user = match sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
         .bind(user_id)
-        .fetch_one(&state.db)
+        .fetch_optional(&state.db)
         .await
-        .unwrap();
+    {
+        Ok(Some(u)) => u,
+        _ => {
+            return Json(PhysicalStatsResponse {
+                height_cm: None,
+                current_weight_kg: None,
+                gender: None,
+                date_of_birth: None,
+                activity_level: Some("sedentary".to_string()),
+                bmr: None,
+                tdee: None,
+            });
+        }
+    };
 
     // Calculate BMR (Mifflin-St Jeor)
     let bmr = if let (Some(w), Some(h), Some(dob), Some(gender)) = (
