@@ -9,6 +9,9 @@ RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/li
 # Copy source code
 COPY . .
 
+# Pin problematic dependencies to compatible versions
+RUN cargo update home@0.5.12 --precise 0.5.9
+
 # Build the application (offline mode for SQLx)
 ENV SQLX_OFFLINE=true
 RUN cargo build --release --bin backend
