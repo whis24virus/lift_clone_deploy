@@ -4,6 +4,7 @@ use axum::{
 };
 use std::net::SocketAddr;
 use tower_http::trace::TraceLayer;
+use tower_http::cors::{CorsLayer, Any};
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use dotenvy::dotenv;
 use std::env;
@@ -62,7 +63,11 @@ async fn main() {
         .route("/api/profile/:id/nutrition", axum::routing::get(handlers::profile::get_nutrition_log).post(handlers::profile::log_nutrition))
         .route("/api/leaderboard", axum::routing::get(handlers::social::get_leaderboard))
         .route("/api/profile/:id/badges", axum::routing::get(handlers::gamification::get_user_badges))
-
+        // CORS configuration - allow any origin for now
+        .layer(CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods(Any)
+            .allow_headers(Any))
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 
