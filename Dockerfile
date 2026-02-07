@@ -1,4 +1,4 @@
-# Simple Dockerfile for Railway deployment
+# Simple Dockerfile for Railway deployment - v2
 FROM rust:latest AS builder
 
 WORKDIR /app
