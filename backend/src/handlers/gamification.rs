@@ -17,11 +17,10 @@ pub async fn get_user_badges(
     State(state): State<AppState>,
     Path(user_id): Path<Uuid>,
 ) -> Json<Vec<UserBadge>> {
-    let badges: Vec<UserBadge> = sqlx::query_as!(
-        UserBadge,
-        "SELECT * FROM user_badges WHERE user_id = $1 ORDER BY earned_at DESC",
-        user_id
+    let badges: Vec<UserBadge> = sqlx::query_as::<_, UserBadge>(
+        "SELECT * FROM user_badges WHERE user_id = $1 ORDER BY earned_at DESC"
     )
+    .bind(user_id)
     .fetch_all(&state.db)
     .await
     .unwrap_or(vec![]);

@@ -6,6 +6,7 @@ use crate::{AppState, models::{User, WeightLog, NutritionLog}};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use chrono::{DateTime, NaiveDate, Utc};
+use sqlx::Row;
 
 #[derive(Serialize)]
 pub struct PhysicalStatsResponse {
@@ -22,9 +23,9 @@ pub struct PhysicalStatsResponse {
 pub struct UpdateStatsRequest {
     pub height_cm: Option<f64>,
     pub weight_kg: Option<f64>,
-    pub gender: Option<String>, // 'male' or 'female'
+    pub gender: Option<String>,
     pub date_of_birth: Option<NaiveDate>,
-    pub activity_level: Option<String>, // 'sedentary', 'light', 'moderate', 'active', 'athlete'
+    pub activity_level: Option<String>,
 }
 
 pub async fn update_physical_stats(
@@ -35,37 +36,33 @@ pub async fn update_physical_stats(
     let mut tx = state.db.begin().await.unwrap();
 
     // 1. Update User Table
-    let _ = sqlx::query!(
-        r#"
-        UPDATE users 
+    let _ = sqlx::query(
+        r#"UPDATE users 
         SET height_cm = COALESCE($1, height_cm),
             current_weight_kg = COALESCE($2, current_weight_kg),
             gender = COALESCE($3, gender),
             date_of_birth = COALESCE($4, date_of_birth),
             activity_level = COALESCE($5, activity_level)
-        WHERE id = $6
-        "#,
-        payload.height_cm,
-        payload.weight_kg,
-        payload.gender,
-        payload.date_of_birth,
-        payload.activity_level,
-        user_id
+        WHERE id = $6"#
     )
+    .bind(payload.height_cm)
+    .bind(payload.weight_kg)
+    .bind(&payload.gender)
+    .bind(payload.date_of_birth)
+    .bind(&payload.activity_level)
+    .bind(user_id)
     .execute(&mut *tx)
     .await
     .unwrap();
 
     // 2. If weight changed, log in weight_logs
     if let Some(weight) = payload.weight_kg {
-        let _ = sqlx::query!(
-            "INSERT INTO weight_logs (user_id, weight_kg) VALUES ($1, $2)",
-            user_id,
-            weight
-        )
-        .execute(&mut *tx)
-        .await
-        .unwrap();
+        let _ = sqlx::query("INSERT INTO weight_logs (user_id, weight_kg) VALUES ($1, $2)")
+            .bind(user_id)
+            .bind(weight)
+            .execute(&mut *tx)
+            .await
+            .unwrap();
     }
 
     tx.commit().await.unwrap();
@@ -78,14 +75,11 @@ pub async fn get_physical_stats(
     State(state): State<AppState>,
     Path(user_id): Path<Uuid>,
 ) -> Json<PhysicalStatsResponse> {
-    let user = sqlx::query_as!(
-        User,
-        "SELECT * FROM users WHERE id = $1",
-        user_id
-    )
-    .fetch_one(&state.db)
-    .await
-    .unwrap();
+    let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = $1")
+        .bind(user_id)
+        .fetch_one(&state.db)
+        .await
+        .unwrap();
 
     // Calculate BMR (Mifflin-St Jeor)
     let bmr = if let (Some(w), Some(h), Some(dob), Some(gender)) = (
@@ -95,8 +89,6 @@ pub async fn get_physical_stats(
         &user.gender,
     ) {
         let age_years = (Utc::now().date_naive() - dob).num_days() / 365;
-        // Formula: 10*W + 6.25*H - 5*A + S
-        // S: +5 male, -161 female
         let s = if gender == "male" { 5.0 } else { -161.0 };
         let bmr_val = (10.0 * w) + (6.25 * h) + (-5.0 * (age_years as f64)) + s;
         Some(bmr_val as i32)
@@ -140,11 +132,10 @@ pub async fn get_weight_history(
     State(state): State<AppState>,
     Path(user_id): Path<Uuid>,
 ) -> Json<Vec<WeightHistoryEntry>> {
-    let history = sqlx::query_as!(
-        WeightLog,
-        "SELECT * FROM weight_logs WHERE user_id = $1 ORDER BY logged_at ASC",
-        user_id
+    let history = sqlx::query_as::<_, WeightLog>(
+        "SELECT * FROM weight_logs WHERE user_id = $1 ORDER BY logged_at ASC"
     )
+    .bind(user_id)
     .fetch_all(&state.db)
     .await
     .unwrap_or(vec![]);
@@ -172,14 +163,8 @@ pub async fn log_nutrition(
 ) -> Json<NutritionLog> {
     let today = Utc::now().date_naive();
     
-    // Log entry (Upsert logic could be better, but insert helps for now)
-    // Postgres ON CONFLICT needed for pure upsert, or just check existing.
-    // For simplicity, let's just insert/update for today.
-    
-    let log = sqlx::query_as!(
-        NutritionLog,
-        r#"
-        INSERT INTO nutrition_logs (user_id, log_date, calories_in, protein_g, carbs_g, fats_g)
+    let log = sqlx::query_as::<_, NutritionLog>(
+        r#"INSERT INTO nutrition_logs (user_id, log_date, calories_in, protein_g, carbs_g, fats_g)
         VALUES ($1, $2, $3, $4, $5, $6)
         ON CONFLICT (user_id, log_date) 
         DO UPDATE SET 
@@ -187,15 +172,14 @@ pub async fn log_nutrition(
             protein_g = COALESCE(nutrition_logs.protein_g, 0) + COALESCE(EXCLUDED.protein_g, 0),
             carbs_g = COALESCE(nutrition_logs.carbs_g, 0) + COALESCE(EXCLUDED.carbs_g, 0),
             fats_g = COALESCE(nutrition_logs.fats_g, 0) + COALESCE(EXCLUDED.fats_g, 0)
-        RETURNING *
-        "#,
-        user_id,
-        today,
-        payload.calories_in,
-        payload.protein_g,
-        payload.carbs_g,
-        payload.fats_g
+        RETURNING *"#
     )
+    .bind(user_id)
+    .bind(today)
+    .bind(payload.calories_in)
+    .bind(payload.protein_g)
+    .bind(payload.carbs_g)
+    .bind(payload.fats_g)
     .fetch_one(&state.db)
     .await
     .unwrap();
@@ -208,12 +192,11 @@ pub async fn get_nutrition_log(
     Path(user_id): Path<Uuid>,
 ) -> Json<Option<NutritionLog>> {
     let today = Utc::now().date_naive();
-    let log = sqlx::query_as!(
-        NutritionLog,
-        "SELECT * FROM nutrition_logs WHERE user_id = $1 AND log_date = $2",
-        user_id,
-        today
+    let log = sqlx::query_as::<_, NutritionLog>(
+        "SELECT * FROM nutrition_logs WHERE user_id = $1 AND log_date = $2"
     )
+    .bind(user_id)
+    .bind(today)
     .fetch_optional(&state.db)
     .await
     .unwrap();

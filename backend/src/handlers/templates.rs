@@ -5,6 +5,7 @@ use axum::{
 use crate::{AppState, models::{WorkoutTemplate, TemplateExercise}};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use sqlx::Row;
 
 #[derive(Deserialize)]
 pub struct CreateTemplateRequest {
@@ -17,13 +18,12 @@ pub async fn create_template(
     State(state): State<AppState>,
     Json(payload): Json<CreateTemplateRequest>,
 ) -> Json<WorkoutTemplate> {
-    let template = sqlx::query_as!(
-        WorkoutTemplate,
-        "INSERT INTO workout_templates (user_id, name, description) VALUES ($1, $2, $3) RETURNING *",
-        payload.user_id,
-        payload.name,
-        payload.description
+    let template = sqlx::query_as::<_, WorkoutTemplate>(
+        "INSERT INTO workout_templates (user_id, name, description) VALUES ($1, $2, $3) RETURNING *"
     )
+    .bind(payload.user_id)
+    .bind(&payload.name)
+    .bind(&payload.description)
     .fetch_one(&state.db)
     .await
     .unwrap();
@@ -34,8 +34,7 @@ pub async fn create_template(
 pub async fn list_templates(
     State(state): State<AppState>,
 ) -> Json<Vec<WorkoutTemplate>> {
-    let templates = sqlx::query_as!(
-        WorkoutTemplate,
+    let templates = sqlx::query_as::<_, WorkoutTemplate>(
         "SELECT * FROM workout_templates ORDER BY created_at DESC"
     )
     .fetch_all(&state.db)
@@ -59,16 +58,15 @@ pub async fn add_template_exercise(
     Path(template_id): Path<Uuid>,
     Json(payload): Json<AddTemplateExerciseRequest>,
 ) -> Json<TemplateExercise> {
-    let exercise = sqlx::query_as!(
-        TemplateExercise,
-        "INSERT INTO template_exercises (template_id, exercise_id, order_index, target_sets, target_reps, target_weight_kg) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
-        template_id,
-        payload.exercise_id,
-        payload.order_index,
-        payload.target_sets,
-        payload.target_reps,
-        payload.target_weight_kg
+    let exercise = sqlx::query_as::<_, TemplateExercise>(
+        "INSERT INTO template_exercises (template_id, exercise_id, order_index, target_sets, target_reps, target_weight_kg) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *"
     )
+    .bind(template_id)
+    .bind(payload.exercise_id)
+    .bind(payload.order_index)
+    .bind(payload.target_sets)
+    .bind(payload.target_reps)
+    .bind(payload.target_weight_kg)
     .fetch_one(&state.db)
     .await
     .unwrap();
@@ -96,37 +94,34 @@ pub async fn get_template(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Json<TemplateWithExercises> {
-    let template = sqlx::query_as!(
-        WorkoutTemplate,
-        "SELECT * FROM workout_templates WHERE id = $1",
-        id
+    let template = sqlx::query_as::<_, WorkoutTemplate>(
+        "SELECT * FROM workout_templates WHERE id = $1"
     )
+    .bind(id)
     .fetch_one(&state.db)
     .await
     .unwrap();
 
     // Join with exercises table to get names
-    let exercises = sqlx::query!(
-        r#"
-        SELECT te.*, e.name as exercise_name 
+    let exercises = sqlx::query(
+        r#"SELECT te.*, e.name as exercise_name 
         FROM template_exercises te
         JOIN exercises e ON te.exercise_id = e.id
         WHERE te.template_id = $1
-        ORDER BY te.order_index
-        "#,
-        id
+        ORDER BY te.order_index"#
     )
+    .bind(id)
     .fetch_all(&state.db)
     .await
     .unwrap();
 
     let exercise_details = exercises.into_iter().map(|rec| TemplateExerciseDetails {
-        id: rec.id,
-        exercise_id: rec.exercise_id,
-        exercise_name: rec.exercise_name,
-        target_sets: rec.target_sets,
-        target_reps: rec.target_reps,
-        target_weight_kg: rec.target_weight_kg,
+        id: rec.get("id"),
+        exercise_id: rec.get("exercise_id"),
+        exercise_name: rec.get("exercise_name"),
+        target_sets: rec.get("target_sets"),
+        target_reps: rec.get("target_reps"),
+        target_weight_kg: rec.get("target_weight_kg"),
     }).collect();
 
     Json(TemplateWithExercises {
@@ -149,27 +144,24 @@ pub async fn update_template_exercises(
     let mut tx = state.db.begin().await.unwrap();
 
     // 1. Delete existing exercises for this template
-    sqlx::query!(
-        "DELETE FROM template_exercises WHERE template_id = $1",
-        id
-    )
-    .execute(&mut *tx)
-    .await
-    .unwrap();
+    sqlx::query("DELETE FROM template_exercises WHERE template_id = $1")
+        .bind(id)
+        .execute(&mut *tx)
+        .await
+        .unwrap();
 
     // 2. Insert new exercises
     let mut new_exercises = Vec::new();
     for ex in payload.exercises {
-        let inserted = sqlx::query_as!(
-            TemplateExercise,
-            "INSERT INTO template_exercises (template_id, exercise_id, order_index, target_sets, target_reps, target_weight_kg) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
-            id,
-            ex.exercise_id,
-            ex.order_index,
-            ex.target_sets,
-            ex.target_reps,
-            ex.target_weight_kg
+        let inserted = sqlx::query_as::<_, TemplateExercise>(
+            "INSERT INTO template_exercises (template_id, exercise_id, order_index, target_sets, target_reps, target_weight_kg) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *"
         )
+        .bind(id)
+        .bind(ex.exercise_id)
+        .bind(ex.order_index)
+        .bind(ex.target_sets)
+        .bind(ex.target_reps)
+        .bind(ex.target_weight_kg)
         .fetch_one(&mut *tx)
         .await
         .unwrap();

@@ -1,12 +1,10 @@
 use axum::{
     routing::get,
     Router,
-    extract::State,
 };
 use std::net::SocketAddr;
 use tower_http::trace::TraceLayer;
 use sqlx::postgres::{PgPool, PgPoolOptions};
-use std::sync::Arc;
 use dotenvy::dotenv;
 use std::env;
 

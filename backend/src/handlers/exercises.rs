@@ -3,7 +3,6 @@ use axum::{
     Json,
 };
 use crate::{AppState, models::Exercise};
-use std::sync::Arc;
 
 pub async fn list_exercises(
     State(state): State<AppState>,

@@ -12,8 +12,7 @@ COPY . .
 # Pin problematic dependencies to compatible versions
 RUN cargo update home@0.5.12 --precise 0.5.9
 
-# Build the application (offline mode for SQLx)
-ENV SQLX_OFFLINE=true
+# Build the application (no SQLX_OFFLINE needed with runtime queries)
 RUN cargo build --release --bin backend
 
 # Runtime stage
