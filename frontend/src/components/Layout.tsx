@@ -1,4 +1,4 @@
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { Dumbbell, LayoutDashboard, LineChart, Trophy, Split, User, Medal } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 

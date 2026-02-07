@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { fetchExercises, createWorkout, logSet, listTemplates, getTemplate, finishWorkoutApi, updateTemplateExercises } from '../api/client';
 import { useWorkoutStore } from '../hooks/useWorkoutStore';
-import { Play, Plus, GripVertical, Info, Dumbbell, Trophy, Medal, Crown, ListChecks } from 'lucide-react';
+import { Play, Plus, GripVertical, Info, Dumbbell, Trophy, Crown, ListChecks } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
@@ -30,13 +30,7 @@ const START_IMAGES: Record<string, string> = {
     "Dumbbell Curl": "/images/bench.png",
 };
 
-const BADGE_DESCRIPTIONS: Record<string, string> = {
-    "Titan Volume": "Lifted over 10,000kg in a single session!",
-    "Heavy Lifter": "Lifted over 5,000kg in a single session!",
-    "Marathoner": "Trained for over 90 minutes!",
-    "Speed Demon": "High volume in under 30 minutes!",
-    "Volume Warrior": "Completed 20+ sets!"
-};
+
 
 // Helper to get image
 const getExerciseImage = (ex: any) => {
@@ -65,40 +59,7 @@ function RewardToast({ message, subtext, onClose }: { message: string, subtext?:
     );
 }
 
-function BadgeModal({ badges, onClose }: { badges: string[], onClose: () => void }) {
-    if (badges.length === 0) return null;
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in">
-            <div className="bg-card w-full max-w-md mx-4 rounded-xl border border-border shadow-2xl overflow-hidden animate-in zoom-in-95">
-                <div className="bg-gradient-to-br from-indigo-600 to-purple-700 p-8 text-center">
-                    <Trophy className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
-                    <h2 className="text-3xl font-black text-white mb-2">Session Complete!</h2>
-                    <p className="text-indigo-100">You earned {badges.length} new badges!</p>
-                </div>
-                <div className="p-6 space-y-4">
-                    {badges.map(badge => (
-                        <div key={badge} className="flex items-center gap-4 p-4 bg-muted/40 rounded-lg border border-border hover:border-indigo-500/50 transition-colors">
-                            <div className="p-3 bg-indigo-500/10 rounded-full">
-                                <Medal className="w-6 h-6 text-indigo-400" />
-                            </div>
-                            <div>
-                                <h4 className="font-bold text-lg">{badge}</h4>
-                                <p className="text-xs text-muted-foreground">{BADGE_DESCRIPTIONS[badge] || "Great Achievement!"}</p>
-                            </div>
-                        </div>
-                    ))}
-                    <button
-                        onClick={onClose}
-                        className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-bold"
-                    >
-                        Awesome!
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-}
+// BadgeModal removed - showing badges inline instead
 
 function WorkoutTimer({ startTime }: { startTime: string }) {
     const [elapsed, setElapsed] = useState(0);
@@ -131,7 +92,7 @@ export function Train() {
 
     // Reward State
     const [reward, setReward] = useState<{ message: string, subtext: string } | null>(null);
-    const [earnedBadges, setEarnedBadges] = useState<string[]>([]);
+    // Badge display handled inline
 
     // Set input state
     const [weight, setWeight] = useState<number>(0);
@@ -223,7 +184,7 @@ export function Train() {
 
             // Show badges if any
             if (res.badges && res.badges.length > 0) {
-                setEarnedBadges(res.badges);
+                setReward({ message: "Badges Earned!", subtext: res.badges.join(", ") });
             } else {
                 if (window.innerWidth < 1024) {
                     // Mobile: go to profile
