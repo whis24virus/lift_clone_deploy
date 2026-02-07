@@ -12,8 +12,8 @@ COPY backend/ .
 # Build the application
 RUN cargo build --release --bin backend
 
-# Runtime stage
-FROM debian:bullseye-slim AS runtime
+# Runtime stage - use bookworm (Debian 12) for newer glibc
+FROM debian:bookworm-slim AS runtime
 WORKDIR /app
 
 # Install runtime dependencies
