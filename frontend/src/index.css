@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Premium Dark Theme (Deep Blue/Black Base) */
+    --background: 230 25% 5%;
+    /* #0a0b10 - Deep dark blue/black */
+    --foreground: 210 40% 98%;
+
+    --card: 230 25% 8%;
+    /* Slightly lighter than bg */
+    --card-foreground: 210 40% 98%;
+
+    --popover: 230 25% 8%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 160 84% 39%;
+    /* Emerald Green - Energetic */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 230 20% 15%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 230 20% 12%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 230 20% 15%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 230 20% 12%;
+    /* Subtle border */
+    --input: 230 20% 12%;
+    --ring: 160 84% 39%;
+
+    --radius: 1rem;
+    /* More rounded */
+  }
+}
+
+/* Custom Scrollbar for Webkit */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+body {
+  @apply bg-background text-foreground;
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
