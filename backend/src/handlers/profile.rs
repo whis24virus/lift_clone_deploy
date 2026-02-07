@@ -6,7 +6,6 @@ use crate::{AppState, models::{User, WeightLog, NutritionLog}};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use chrono::{DateTime, NaiveDate, Utc};
-use sqlx::Row;
 
 #[derive(Serialize)]
 pub struct PhysicalStatsResponse {

@@ -65,7 +65,7 @@ pub async fn log_set(
 
     // 2. Check previous max WEIGHT for this exercise/user
     let max_row = sqlx::query(
-        r#"SELECT MAX(s.weight_kg) as max_val 
+        r#"SELECT MAX(s.weight_kg)::FLOAT4 as max_val 
         FROM sets s
         JOIN workouts w ON s.workout_id = w.id
         WHERE s.exercise_id = $1 AND w.user_id = $2"#
@@ -157,13 +157,13 @@ pub async fn finish_workout(
 ) -> Json<FinishWorkoutResponse> {
     let now = chrono::Utc::now();
     
-    // 1. Fetch workout details, volume, and user weight
+    // 1. Fetch workout details, volume, and user weight (cast to FLOAT8 to get f64)
     let workout_data = sqlx::query(
         r#"SELECT 
             w.start_time, 
             w.user_id,
             u.current_weight_kg,
-            COALESCE(SUM(s.weight_kg * s.reps), 0) as volume,
+            COALESCE(SUM(s.weight_kg * s.reps), 0)::FLOAT8 as volume,
             COUNT(s.id) as set_count
         FROM workouts w
         JOIN users u ON w.user_id = u.id
@@ -179,9 +179,7 @@ pub async fn finish_workout(
     let start_time: Option<chrono::DateTime<chrono::Utc>> = workout_data.get("start_time");
     let user_id: Uuid = workout_data.get("user_id");
     let current_weight: Option<f64> = workout_data.get("current_weight_kg");
-    let volume: f64 = workout_data.try_get::<sqlx::types::BigDecimal, _>("volume")
-        .map(|bd| bd.to_string().parse::<f64>().unwrap_or(0.0))
-        .unwrap_or(0.0);
+    let volume: f64 = workout_data.try_get::<Option<f64>, _>("volume").unwrap_or(None).unwrap_or(0.0);
     let set_count: i64 = workout_data.get("set_count");
 
     // 2. Calculate Stats

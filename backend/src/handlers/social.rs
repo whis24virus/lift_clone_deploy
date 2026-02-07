@@ -52,11 +52,11 @@ pub async fn get_profile(
         .await
         .unwrap();
 
-    // Fetch basic stats
+    // Fetch basic stats (cast to FLOAT8 for f64)
     let stats = sqlx::query(
         r#"SELECT
             COUNT(DISTINCT w.id) as workout_count,
-            COALESCE(SUM(s.weight_kg * s.reps), 0) as total_volume
+            COALESCE(SUM(s.weight_kg * s.reps), 0)::FLOAT8 as total_volume
         FROM workouts w
         LEFT JOIN sets s ON w.id = s.workout_id
         WHERE w.user_id = $1"#
@@ -67,15 +67,13 @@ pub async fn get_profile(
     .unwrap();
 
     let workout_count: i64 = stats.get("workout_count");
-    let total_volume: f64 = stats.try_get::<sqlx::types::BigDecimal, _>("total_volume")
-        .map(|bd| bd.to_string().parse::<f64>().unwrap_or(0.0))
-        .unwrap_or(0.0);
+    let total_volume: f64 = stats.try_get::<Option<f64>, _>("total_volume").unwrap_or(None).unwrap_or(0.0);
 
-    // Fetch daily activity for the last 365 days
+    // Fetch daily activity for the last 365 days (cast to FLOAT8)
     let activity = sqlx::query(
         r#"SELECT
             DATE(w.start_time) as work_date,
-            COALESCE(SUM(s.weight_kg * s.reps), 0) as daily_volume
+            COALESCE(SUM(s.weight_kg * s.reps), 0)::FLOAT8 as daily_volume
         FROM workouts w
         LEFT JOIN sets s ON w.id = s.workout_id
         WHERE w.user_id = $1 AND w.start_time > NOW() - INTERVAL '1 year'
@@ -89,9 +87,7 @@ pub async fn get_profile(
 
     let activity_log: Vec<DailyActivity> = activity.iter().map(|rec| {
         let date: Option<NaiveDate> = rec.get("work_date");
-        let volume: f64 = rec.try_get::<sqlx::types::BigDecimal, _>("daily_volume")
-            .map(|bd| bd.to_string().parse::<f64>().unwrap_or(0.0))
-            .unwrap_or(0.0);
+        let volume: f64 = rec.try_get::<Option<f64>, _>("daily_volume").unwrap_or(None).unwrap_or(0.0);
         DailyActivity {
             date: date.map(|d| d.to_string()).unwrap_or_default(),
             volume_kg: volume,
@@ -181,7 +177,7 @@ pub async fn get_workout_history(
             w.name,
             w.start_time,
             w.end_time,
-            COALESCE(SUM(s.weight_kg * s.reps), 0) as total_volume,
+            COALESCE(SUM(s.weight_kg * s.reps), 0)::FLOAT8 as total_volume,
             COUNT(DISTINCT s.exercise_id) as exercise_count
         FROM workouts w
         LEFT JOIN sets s ON w.id = s.workout_id
@@ -196,9 +192,7 @@ pub async fn get_workout_history(
     .unwrap_or(vec![]);
 
     let response = history.iter().map(|rec| {
-        let volume: f64 = rec.try_get::<sqlx::types::BigDecimal, _>("total_volume")
-            .map(|bd| bd.to_string().parse::<f64>().unwrap_or(0.0))
-            .unwrap_or(0.0);
+        let volume: f64 = rec.try_get::<Option<f64>, _>("total_volume").unwrap_or(None).unwrap_or(0.0);
         WorkoutHistoryEntry {
             id: rec.get("id"),
             name: rec.get("name"),
